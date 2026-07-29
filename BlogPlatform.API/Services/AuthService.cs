@@ -43,7 +43,16 @@ namespace BlogPlatform.API.Services
 
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
-            throw new NotImplementedException();
+
+            string token = GenerateJwtToken(user);
+
+            return new AuthResponseDto
+            {
+                Token = token,
+                Username = user.Name,
+                Email = user.Email,
+                Role = user.Role
+            };
         }
 
         public Task<AuthResponseDto> LoginAsync(LoginDto loginDto)
