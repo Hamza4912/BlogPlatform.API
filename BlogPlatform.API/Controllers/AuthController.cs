@@ -21,5 +21,13 @@ namespace BlogPlatform.API.Controllers
 
             return Ok(result);
         }
+
+        [HttpPost("login")]
+        public async Task<IActionResult> Login(LoginDto loginDto)
+        {
+            var result = await _authService.LoginAsync(loginDto);
+
+            return Ok(result);
+        }
     }
 }   

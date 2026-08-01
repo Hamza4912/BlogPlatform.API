@@ -7,6 +7,7 @@ using Microsoft.Extensions.Configuration;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.IdentityModel.Tokens;
+using BlogPlatform.API.Exceptions;
 using System.Text;
 
 namespace BlogPlatform.API.Services
@@ -29,7 +30,7 @@ namespace BlogPlatform.API.Services
             if (emailExists)
             {
 
-                throw new Exception("Email is already registered.");
+                throw new ApiException("Email is already registered.", 400);
             }
             string hashedPassword = BCrypt.Net.BCrypt.HashPassword(registerDto.Password);
             var user = new User
@@ -55,10 +56,35 @@ namespace BlogPlatform.API.Services
             };
         }
 
-        public Task<AuthResponseDto> LoginAsync(LoginDto loginDto)
+        public async Task<AuthResponseDto> LoginAsync(LoginDto loginDto)
         {
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.Email == loginDto.Email);
 
-            throw new NotImplementedException();
+            if (user == null)
+            {
+                throw new ApiException("Invalid email or password.", 401);
+            }
+
+            bool isPasswordValid = BCrypt.Net.BCrypt.Verify(
+                   loginDto.Password,
+                   user.PasswordHash
+               );
+ 
+            if (!isPasswordValid)
+            {
+                throw new ApiException("Invalid email or password.", 401);
+            }
+
+            string token = GenerateJwtToken(user);
+
+            return new AuthResponseDto
+            {
+                Token = token,
+                Username = user.Name,
+                Email = user.Email,
+                Role = user.Role
+            };
         }
 
         private string GenerateJwtToken(User user)
