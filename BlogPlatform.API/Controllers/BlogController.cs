@@ -59,6 +59,7 @@ namespace BlogPlatform.API.Controllers
             return Ok(blog);
         }
 
+
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateBlog(
     int id,
