@@ -31,5 +31,7 @@ namespace BlogPlatform.API.Models
 
         //Navigation property for comments
         public ICollection<Comment> Comments { get; set; } = new List<Comment>();
+
+        public ICollection<BlogLike> Likes { get; set; } = new List<BlogLike>();
     }
 }

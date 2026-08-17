@@ -61,6 +61,11 @@ namespace BlogPlatform.API.Controllers
             return Ok(category);
         }
 
+        [HttpGet("{id}/blogs")] public async Task<IActionResult> GetBlogsByCategory(int id)
+        { 
+            var blogs = await _categoryService.GetBlogsByCategoryAsync(id);
+            return Ok(blogs);
+        }
         
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteCategory(int id)

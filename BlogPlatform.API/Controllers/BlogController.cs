@@ -1,9 +1,10 @@
-﻿using BlogPlatform.API.Services.Interfaces;
+﻿using BlogPlatform.API.DTOs.Blog;
+using BlogPlatform.API.DTOs.Common;
+using BlogPlatform.API.Services;
+using BlogPlatform.API.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using BlogPlatform.API.DTOs.Blog;
 using System.Security.Claims;
-using BlogPlatform.API.DTOs.Common;
 
 namespace BlogPlatform.API.Controllers
 {
@@ -13,10 +14,12 @@ namespace BlogPlatform.API.Controllers
     public class BlogController : ControllerBase
     {
         private readonly IBlogService _blogService;
+        private readonly IBlogLikeService _blogLikeService;
 
-        public BlogController(IBlogService blogService)
+        public BlogController(IBlogService blogService,IBlogLikeService blogLikeService)
         {
             _blogService = blogService;
+            _blogLikeService = blogLikeService;
         }
         [HttpPost]
         public async Task<IActionResult> CreateBlog(CreateBlogDto createBlogDto)
@@ -99,6 +102,46 @@ namespace BlogPlatform.API.Controllers
             return Ok(new
             {
                 message = "Blog deleted successfully."
+            });
+        }
+
+        [HttpPost("{id}/like")]
+        public async Task<IActionResult> LikeBlog(int id)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+
+            if (userIdClaim == null)
+            {
+                return Unauthorized();
+            }
+
+            int userId = int.Parse(userIdClaim.Value);
+
+            await _blogLikeService.LikeBlogAsync(id, userId);
+
+            return Ok(new
+            {
+                message = "Blog liked successfully."
+            });
+        }
+
+        [HttpDelete("{id}/like")]
+        public async Task<IActionResult> UnlikeBlog(int id)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+
+            if (userIdClaim == null)
+            {
+                return Unauthorized();
+            }
+
+            int userId = int.Parse(userIdClaim.Value);
+
+            await _blogLikeService.UnlikeBlogAsync(id, userId);
+
+            return Ok(new
+            {
+                message = "Blog unliked successfully."
             });
         }
     }
