@@ -62,9 +62,24 @@ namespace BlogPlatform.API.Services
             await _context.SaveChangesAsync();
         }
 
-        public Task<LikeResponseDto> GetLikesAsync(int blogId)
+        public async Task<LikeResponseDto> GetLikesAsync(int blogId)
         {
-            throw new NotImplementedException();
+            var blogExists = await _context.Blogs
+                .AnyAsync(b => b.Id == blogId);
+
+            if (!blogExists)
+            {
+                throw new ApiException("Blog not found.", 404);
+            }
+
+            var likesCount = await _context.BlogLikes
+                .CountAsync(bl => bl.BlogId == blogId);
+
+            return new LikeResponseDto
+            {
+                BlogId = blogId,
+                Likes = likesCount
+            };
         }
     }
 }
