@@ -46,10 +46,24 @@ namespace BlogPlatform.API.Services
             await _context.SaveChangesAsync();
 
             string token = GenerateJwtToken(user);
+            string refreshToken = GenerateRefreshToken();
+
+            var refreshTokenEntity = new RefreshToken
+            {
+                Token = refreshToken,
+                UserId = user.Id,
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.AddDays(7)
+            };
+
+            _context.RefreshTokens.Add(refreshTokenEntity);
+
+            await _context.SaveChangesAsync();
 
             return new AuthResponseDto
             {
-                Token = token,
+                AccessToken = token,
+                RefreshToken = refreshToken,
                 Username = user.Name,
                 Email = user.Email,
                 Role = user.Role
@@ -77,16 +91,103 @@ namespace BlogPlatform.API.Services
             }
 
             string token = GenerateJwtToken(user);
+            string refreshToken = GenerateRefreshToken();
+
+            var refreshTokenEntity = new RefreshToken
+            {
+                Token = refreshToken,
+                UserId = user.Id,
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.AddDays(7)
+            };
+
+            _context.RefreshTokens.Add(refreshTokenEntity);
+ 
+            await _context.SaveChangesAsync();
 
             return new AuthResponseDto
             {
-                Token = token,
+                AccessToken = token,
+                RefreshToken = refreshToken,
                 Username = user.Name,
                 Email = user.Email,
                 Role = user.Role
             };
         }
 
+        public async Task<AuthResponseDto> RefreshTokenAsync(
+    RefreshTokenRequestDto refreshTokenRequestDto)
+        {
+            var refreshToken = await _context.RefreshTokens
+                .Include(rt => rt.User)
+                .FirstOrDefaultAsync(rt =>
+                    rt.Token == refreshTokenRequestDto.RefreshToken);
+
+            if (refreshToken == null)
+            {
+                throw new ApiException("Invalid refresh token.", 401);
+            }
+
+            if (refreshToken.RevokedAt != null)
+            {
+                throw new ApiException("Refresh token has been revoked.", 401);
+            }
+
+            if (refreshToken.ExpiresAt <= DateTime.UtcNow)
+            {
+                throw new ApiException("Refresh token has expired.", 401);
+            }
+
+            var user = refreshToken.User;
+
+            // Revoke old refresh token
+            refreshToken.RevokedAt = DateTime.UtcNow;
+
+            // Generate new tokens
+            string newAccessToken = GenerateJwtToken(user);
+            string newRefreshToken = GenerateRefreshToken();
+
+            var newRefreshTokenEntity = new RefreshToken
+            {
+                Token = newRefreshToken,
+                UserId = user.Id,
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.AddDays(7)
+            };
+
+            _context.RefreshTokens.Add(newRefreshTokenEntity);
+
+            await _context.SaveChangesAsync();
+
+            return new AuthResponseDto
+            {
+                AccessToken = newAccessToken,
+                RefreshToken = newRefreshToken,
+                Username = user.Name,
+                Email = user.Email,
+                Role = user.Role
+            };
+        }
+
+        public async Task LogoutAsync(string refreshToken)
+        {
+            var token = await _context.RefreshTokens
+                .FirstOrDefaultAsync(rt => rt.Token == refreshToken);
+
+            if (token == null)
+            {
+                throw new ApiException("Invalid refresh token.", 401);
+            }
+
+            if (token.RevokedAt != null)
+            {
+                throw new ApiException("Refresh token has already been revoked.", 400);
+            }
+
+            token.RevokedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+        }
         private string GenerateJwtToken(User user)
         {
             var claims = new List<Claim>
@@ -118,6 +219,16 @@ namespace BlogPlatform.API.Services
 
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
+
+        
+
+        private string GenerateRefreshToken()
+        {
+            return Convert.ToBase64String(
+                System.Security.Cryptography.RandomNumberGenerator.GetBytes(64)
+            );
+        }
+
 
     }
 

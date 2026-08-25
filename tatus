@@ -1,0 +1,53 @@
+[1mdiff --git a/BlogPlatform.API/Controllers/BlogController.cs b/BlogPlatform.API/Controllers/BlogController.cs[m
+[1mindex aabbce2..8efd9a0 100644[m
+[1m--- a/BlogPlatform.API/Controllers/BlogController.cs[m
+[1m+++ b/BlogPlatform.API/Controllers/BlogController.cs[m
+[36m@@ -143,6 +143,15 @@[m [mnamespace BlogPlatform.API.Controllers[m
+             {[m
+                 message = "Blog unliked successfully."[m
+             });[m
+[32m+[m
+[32m+[m[32m        }[m
+[32m+[m
+[32m+[m[32m        [HttpGet("{id}/likes")][m
+[32m+[m[32m        public async Task<IActionResult> GetLikes(int id)[m
+[32m+[m[32m        {[m
+[32m+[m[32m            var result = await _blogLikeService.GetLikesAsync(id);[m
+[32m+[m
+[32m+[m[32m            return Ok(result);[m
+         }[m
+     }[m
+ }[m
+\ No newline at end of file[m
+[1mdiff --git a/BlogPlatform.API/Services/BlogLikeService.cs b/BlogPlatform.API/Services/BlogLikeService.cs[m
+[1mindex ac73718..188e4e4 100644[m
+[1m--- a/BlogPlatform.API/Services/BlogLikeService.cs[m
+[1m+++ b/BlogPlatform.API/Services/BlogLikeService.cs[m
+[36m@@ -62,9 +62,24 @@[m [mnamespace BlogPlatform.API.Services[m
+             await _context.SaveChangesAsync();[m
+         }[m
+ [m
+[31m-        public Task<LikeResponseDto> GetLikesAsync(int blogId)[m
+[32m+[m[32m        public async Task<LikeResponseDto> GetLikesAsync(int blogId)[m
+         {[m
+[31m-            throw new NotImplementedException();[m
+[32m+[m[32m            var blogExists = await _context.Blogs[m
+[32m+[m[32m                .AnyAsync(b => b.Id == blogId);[m
+[32m+[m
+[32m+[m[32m            if (!blogExists)[m
+[32m+[m[32m            {[m
+[32m+[m[32m                throw new ApiException("Blog not found.", 404);[m
+[32m+[m[32m            }[m
+[32m+[m
+[32m+[m[32m            var likesCount = await _context.BlogLikes[m
+[32m+[m[32m                .CountAsync(bl => bl.BlogId == blogId);[m
+[32m+[m
+[32m+[m[32m            return new LikeResponseDto[m
+[32m+[m[32m            {[m
+[32m+[m[32m                BlogId = blogId,[m
+[32m+[m[32m                Likes = likesCount[m
+[32m+[m[32m            };[m
+         }[m
+     }[m
+ }[m
+\ No newline at end of file[m

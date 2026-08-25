@@ -27,5 +27,7 @@ namespace BlogPlatform.API.Models
         public ICollection<Comment> Comments { get; set; } = new List<Comment>();
 
         public ICollection<BlogLike> Likes { get; set; } = new List<BlogLike>();
+
+        public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
     }
 }
