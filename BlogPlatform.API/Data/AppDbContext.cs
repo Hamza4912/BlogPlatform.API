@@ -17,6 +17,7 @@ namespace BlogPlatform.API.Data
         public DbSet<Category> Categories { get; set; }
         public DbSet<BlogLike> BlogLikes { get; set; }
 
+        public DbSet<RefreshToken> RefreshTokens { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Comment>()
@@ -40,6 +41,14 @@ namespace BlogPlatform.API.Data
             modelBuilder.Entity<BlogLike>()
             .HasIndex(bl => new { bl.UserId, bl.BlogId })
             .IsUnique();
+
+
+            modelBuilder.Entity<RefreshToken>()
+    .HasOne(rt => rt.User)
+    .WithMany(u => u.RefreshTokens)
+    .HasForeignKey(rt => rt.UserId)
+    .OnDelete(DeleteBehavior.NoAction);
+
 
             base.OnModelCreating(modelBuilder);
         }

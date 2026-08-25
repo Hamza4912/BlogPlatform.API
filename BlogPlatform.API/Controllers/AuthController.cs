@@ -29,7 +29,26 @@ namespace BlogPlatform.API.Controllers
 
             return Ok(result);
         }
+        [HttpPost("refresh")]
+        public async Task<IActionResult> RefreshToken(
+            RefreshTokenRequestDto refreshTokenRequestDto)
+        {
+            var result = await _authService.RefreshTokenAsync(
+                refreshTokenRequestDto);
 
+            return Ok(result);
+        }
+        [HttpPost("logout")]
+        public async Task<IActionResult> Logout(
+    RefreshTokenRequestDto refreshTokenRequestDto)
+        {
+            await _authService.LogoutAsync(
+                refreshTokenRequestDto.RefreshToken);
 
+            return Ok(new
+            {
+                message = "Logged out successfully."
+            });
+        }
     }
 }   

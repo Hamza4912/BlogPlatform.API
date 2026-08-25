@@ -1,0 +1,334 @@
+[1mdiff --git a/BlogPlatform.API/Controllers/AuthController.cs b/BlogPlatform.API/Controllers/AuthController.cs[m
+[1mindex 601f432..d5e8a6d 100644[m
+[1m--- a/BlogPlatform.API/Controllers/AuthController.cs[m
+[1m+++ b/BlogPlatform.API/Controllers/AuthController.cs[m
+[36m@@ -29,7 +29,26 @@[m [mnamespace BlogPlatform.API.Controllers[m
+ [m
+             return Ok(result);[m
+         }[m
+[32m+[m[32m        [HttpPost("refresh")][m
+[32m+[m[32m        public async Task<IActionResult> RefreshToken([m
+[32m+[m[32m            RefreshTokenRequestDto refreshTokenRequestDto)[m
+[32m+[m[32m        {[m
+[32m+[m[32m            var result = await _authService.RefreshTokenAsync([m
+[32m+[m[32m                refreshTokenRequestDto);[m
+ [m
+[32m+[m[32m            return Ok(result);[m
+[32m+[m[32m        }[m
+[32m+[m[32m        [HttpPost("logout")][m
+[32m+[m[32m        public async Task<IActionResult> Logout([m
+[32m+[m[32m    RefreshTokenRequestDto refreshTokenRequestDto)[m
+[32m+[m[32m        {[m
+[32m+[m[32m            await _authService.LogoutAsync([m
+[32m+[m[32m                refreshTokenRequestDto.RefreshToken);[m
+ [m
+[32m+[m[32m            return Ok(new[m
+[32m+[m[32m            {[m
+[32m+[m[32m                message = "Logged out successfully."[m
+[32m+[m[32m            });[m
+[32m+[m[32m        }[m
+     }[m
+ }   [m
+\ No newline at end of file[m
+[1mdiff --git a/BlogPlatform.API/DTO/Auth/AuthResponseDto.cs b/BlogPlatform.API/DTO/Auth/AuthResponseDto.cs[m
+[1mindex 6281931..c6b6829 100644[m
+[1m--- a/BlogPlatform.API/DTO/Auth/AuthResponseDto.cs[m
+[1m+++ b/BlogPlatform.API/DTO/Auth/AuthResponseDto.cs[m
+[36m@@ -2,10 +2,14 @@[m
+ {[m
+     public class AuthResponseDto[m
+     {[m
+[31m-        public string Token { get; set; } = string.Empty;[m
+[32m+[m[32m        public string AccessToken { get; set; } = string.Empty;[m
+[32m+[m
+[32m+[m[32m        public string RefreshToken { get; set; } = string.Empty;[m
+[32m+[m
+[32m+[m[32m        public string Username { get; set; } = string.Empty;[m
+ [m
+[31m-        public string Username { get; set;  } = string.Empty;[m
+         public string Email { get; set; } = string.Empty;[m
+[32m+[m
+         public string Role { get; set; } = string.Empty;[m
+     }[m
+[31m-}[m
+[32m+[m[32m}[m
+\ No newline at end of file[m
+[1mdiff --git a/BlogPlatform.API/Data/AppDbContext.cs b/BlogPlatform.API/Data/AppDbContext.cs[m
+[1mindex b1f37e9..7e9c825 100644[m
+[1m--- a/BlogPlatform.API/Data/AppDbContext.cs[m
+[1m+++ b/BlogPlatform.API/Data/AppDbContext.cs[m
+[36m@@ -17,6 +17,7 @@[m [mnamespace BlogPlatform.API.Data[m
+         public DbSet<Category> Categories { get; set; }[m
+         public DbSet<BlogLike> BlogLikes { get; set; }[m
+ [m
+[32m+[m[32m        public DbSet<RefreshToken> RefreshTokens { get; set; }[m
+         protected override void OnModelCreating(ModelBuilder modelBuilder)[m
+         {[m
+             modelBuilder.Entity<Comment>()[m
+[36m@@ -41,6 +42,14 @@[m [mnamespace BlogPlatform.API.Data[m
+             .HasIndex(bl => new { bl.UserId, bl.BlogId })[m
+             .IsUnique();[m
+ [m
+[32m+[m
+[32m+[m[32m            modelBuilder.Entity<RefreshToken>()[m
+[32m+[m[32m    .HasOne(rt => rt.User)[m
+[32m+[m[32m    .WithMany(u => u.RefreshTokens)[m
+[32m+[m[32m    .HasForeignKey(rt => rt.UserId)[m
+[32m+[m[32m    .OnDelete(DeleteBehavior.NoAction);[m
+[32m+[m
+[32m+[m
+             base.OnModelCreating(modelBuilder);[m
+         }[m
+ [m
+[1mdiff --git a/BlogPlatform.API/Migrations/AppDbContextModelSnapshot.cs b/BlogPlatform.API/Migrations/AppDbContextModelSnapshot.cs[m
+[1mindex 9c0605f..cb9b78f 100644[m
+[1m--- a/BlogPlatform.API/Migrations/AppDbContextModelSnapshot.cs[m
+[1m+++ b/BlogPlatform.API/Migrations/AppDbContextModelSnapshot.cs[m
+[36m@@ -139,6 +139,37 @@[m [mnamespace BlogPlatform.API.Migrations[m
+                     b.ToTable("Comments");[m
+                 });[m
+ [m
+[32m+[m[32m            modelBuilder.Entity("BlogPlatform.API.Models.RefreshToken", b =>[m
+[32m+[m[32m                {[m
+[32m+[m[32m                    b.Property<int>("Id")[m
+[32m+[m[32m                        .ValueGeneratedOnAdd()[m
+[32m+[m[32m                        .HasColumnType("int");[m
+[32m+[m
+[32m+[m[32m                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));[m
+[32m+[m
+[32m+[m[32m                    b.Property<DateTime>("CreatedAt")[m
+[32m+[m[32m                        .HasColumnType("datetime2");[m
+[32m+[m
+[32m+[m[32m                    b.Property<DateTime>("ExpiresAt")[m
+[32m+[m[32m                        .HasColumnType("datetime2");[m
+[32m+[m
+[32m+[m[32m                    b.Property<DateTime?>("RevokedAt")[m
+[32m+[m[32m                        .HasColumnType("datetime2");[m
+[32m+[m
+[32m+[m[32m                    b.Property<string>("Token")[m
+[32m+[m[32m                        .IsRequired()[m
+[32m+[m[32m                        .HasColumnType("nvarchar(max)");[m
+[32m+[m
+[32m+[m[32m                    b.Property<int>("UserId")[m
+[32m+[m[32m                        .HasColumnType("int");[m
+[32m+[m
+[32m+[m[32m                    b.HasKey("Id");[m
+[32m+[m
+[32m+[m[32m                    b.HasIndex("UserId");[m
+[32m+[m
+[32m+[m[32m                    b.ToTable("RefreshTokens");[m
+[32m+[m[32m                });[m
+[32m+[m
+             modelBuilder.Entity("BlogPlatform.API.Models.User", b =>[m
+                 {[m
+                     b.Property<int>("Id")[m
+[36m@@ -230,6 +261,17 @@[m [mnamespace BlogPlatform.API.Migrations[m
+                     b.Navigation("User");[m
+                 });[m
+ [m
+[32m+[m[32m            modelBuilder.Entity("BlogPlatform.API.Models.RefreshToken", b =>[m
+[32m+[m[32m                {[m
+[32m+[m[32m                    b.HasOne("BlogPlatform.API.Models.User", "User")[m
+[32m+[m[32m                        .WithMany("RefreshTokens")[m
+[32m+[m[32m                        .HasForeignKey("UserId")[m
+[32m+[m[32m                        .OnDelete(DeleteBehavior.NoAction)[m
+[32m+[m[32m                        .IsRequired();[m
+[32m+[m
+[32m+[m[32m                    b.Navigation("User");[m
+[32m+[m[32m                });[m
+[32m+[m
+             modelBuilder.Entity("BlogPlatform.API.Models.Blog", b =>[m
+                 {[m
+                     b.Navigation("Comments");[m
+[36m@@ -249,6 +291,8 @@[m [mnamespace BlogPlatform.API.Migrations[m
+                     b.Navigation("Comments");[m
+ [m
+                     b.Navigation("Likes");[m
+[32m+[m
+[32m+[m[32m                    b.Navigation("RefreshTokens");[m
+                 });[m
+ #pragma warning restore 612, 618[m
+         }[m
+[1mdiff --git a/BlogPlatform.API/Models/User.cs b/BlogPlatform.API/Models/User.cs[m
+[1mindex dc28740..833648b 100644[m
+[1m--- a/BlogPlatform.API/Models/User.cs[m
+[1m+++ b/BlogPlatform.API/Models/User.cs[m
+[36m@@ -27,5 +27,7 @@[m [mnamespace BlogPlatform.API.Models[m
+         public ICollection<Comment> Comments { get; set; } = new List<Comment>();[m
+ [m
+         public ICollection<BlogLike> Likes { get; set; } = new List<BlogLike>();[m
+[32m+[m
+[32m+[m[32m        public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();[m
+     }[m
+ }[m
+[1mdiff --git a/BlogPlatform.API/Services/AuthService.cs b/BlogPlatform.API/Services/AuthService.cs[m
+[1mindex a9c255d..32d546d 100644[m
+[1m--- a/BlogPlatform.API/Services/AuthService.cs[m
+[1m+++ b/BlogPlatform.API/Services/AuthService.cs[m
+[36m@@ -46,10 +46,24 @@[m [mnamespace BlogPlatform.API.Services[m
+             await _context.SaveChangesAsync();[m
+ [m
+             string token = GenerateJwtToken(user);[m
+[32m+[m[32m            string refreshToken = GenerateRefreshToken();[m
+[32m+[m
+[32m+[m[32m            var refreshTokenEntity = new RefreshToken[m
+[32m+[m[32m            {[m
+[32m+[m[32m                Token = refreshToken,[m
+[32m+[m[32m                UserId = user.Id,[m
+[32m+[m[32m                CreatedAt = DateTime.UtcNow,[m
+[32m+[m[32m                ExpiresAt = DateTime.UtcNow.AddDays(7)[m
+[32m+[m[32m            };[m
+[32m+[m
+[32m+[m[32m            _context.RefreshTokens.Add(refreshTokenEntity);[m
+[32m+[m
+[32m+[m[32m            await _context.SaveChangesAsync();[m
+ [m
+             return new AuthResponseDto[m
+             {[m
+[31m-                Token = token,[m
+[32m+[m[32m                AccessToken = token,[m
+[32m+[m[32m                RefreshToken = refreshToken,[m
+                 Username = user.Name,[m
+                 Email = user.Email,[m
+                 Role = user.Role[m
+[36m@@ -77,16 +91,103 @@[m [mnamespace BlogPlatform.API.Services[m
+             }[m
+ [m
+             string token = GenerateJwtToken(user);[m
+[32m+[m[32m            string refreshToken = GenerateRefreshToken();[m
+[32m+[m
+[32m+[m[32m            var refreshTokenEntity = new RefreshToken[m
+[32m+[m[32m            {[m
+[32m+[m[32m                Token = refreshToken,[m
+[32m+[m[32m                UserId = user.Id,[m
+[32m+[m[32m                CreatedAt = DateTime.UtcNow,[m
+[32m+[m[32m                ExpiresAt = DateTime.UtcNow.AddDays(7)[m
+[32m+[m[32m            };[m
+[32m+[m
+[32m+[m[32m            _context.RefreshTokens.Add(refreshTokenEntity);[m
+[32m+[m[41m [m
+[32m+[m[32m            await _context.SaveChangesAsync();[m
+ [m
+             return new AuthResponseDto[m
+             {[m
+[31m-                Token = token,[m
+[32m+[m[32m                AccessToken = token,[m
+[32m+[m[32m                RefreshToken = refreshToken,[m
+                 Username = user.Name,[m
+                 Email = user.Email,[m
+                 Role = user.Role[m
+             };[m
+         }[m
+ [m
+[32m+[m[32m        public async Task<AuthResponseDto> RefreshTokenAsync([m
+[32m+[m[32m    RefreshTokenRequestDto refreshTokenRequestDto)[m
+[32m+[m[32m        {[m
+[32m+[m[32m            var refreshToken = await _context.RefreshTokens[m
+[32m+[m[32m                .Include(rt => rt.User)[m
+[32m+[m[32m                .FirstOrDefaultAsync(rt =>[m
+[32m+[m[32m                    rt.Token == refreshTokenRequestDto.RefreshToken);[m
+[32m+[m
+[32m+[m[32m            if (refreshToken == null)[m
+[32m+[m[32m            {[m
+[32m+[m[32m                throw new ApiException("Invalid refresh token.", 401);[m
+[32m+[m[32m            }[m
+[32m+[m
+[32m+[m[32m            if (refreshToken.RevokedAt != null)[m
+[32m+[m[32m            {[m
+[32m+[m[32m                throw new ApiException("Refresh token has been revoked.", 401);[m
+[32m+[m[32m            }[m
+[32m+[m
+[32m+[m[32m            if (refreshToken.ExpiresAt <= DateTime.UtcNow)[m
+[32m+[m[32m            {[m
+[32m+[m[32m                throw new ApiException("Refresh token has expired.", 401);[m
+[32m+[m[32m            }[m
+[32m+[m
+[32m+[m[32m            var user = refreshToken.User;[m
+[32m+[m
+[32m+[m[32m            // Revoke old refresh token[m
+[32m+[m[32m            refreshToken.RevokedAt = DateTime.UtcNow;[m
+[32m+[m
+[32m+[m[32m            // Generate new tokens[m
+[32m+[m[32m            string newAccessToken = GenerateJwtToken(user);[m
+[32m+[m[32m            string newRefreshToken = GenerateRefreshToken();[m
+[32m+[m
+[32m+[m[32m            var newRefreshTokenEntity = new RefreshToken[m
+[32m+[m[32m            {[m
+[32m+[m[32m                Token = newRefreshToken,[m
+[32m+[m[32m                UserId = user.Id,[m
+[32m+[m[32m                CreatedAt = DateTime.UtcNow,[m
+[32m+[m[32m                ExpiresAt = DateTime.UtcNow.AddDays(7)[m
+[32m+[m[32m            };[m
+[32m+[m
+[32m+[m[32m            _context.RefreshTokens.Add(newRefreshTokenEntity);[m
+[32m+[m
+[32m+[m[32m            await _context.SaveChangesAsync();[m
+[32m+[m
+[32m+[m[32m            return new AuthResponseDto[m
+[32m+[m[32m            {[m
+[32m+[m[32m                AccessToken = newAccessToken,[m
+[32m+[m[32m                RefreshToken = newRefreshToken,[m
+[32m+[m[32m                Username = user.Name,[m
+[32m+[m[32m                Email = user.Email,[m
+[32m+[m[32m                Role = user.Role[m
+[32m+[m[32m            };[m
+[32m+[m[32m        }[m
+[32m+[m
+[32m+[m[32m        public async Task LogoutAsync(string refreshToken)[m
+[32m+[m[32m        {[m
+[32m+[m[32m            var token = await _context.RefreshTokens[m
+[32m+[m[32m                .FirstOrDefaultAsync(rt => rt.Token == refreshToken);[m
+[32m+[m
+[32m+[m[32m            if (token == null)[m
+[32m+[m[32m            {[m
+[32m+[m[32m                throw new ApiException("Invalid refresh token.", 401);[m
+[32m+[m[32m            }[m
+[32m+[m
+[32m+[m[32m            if (token.RevokedAt != null)[m
+[32m+[m[32m            {[m
+[32m+[m[32m                throw new ApiException("Refresh token has already been revoked.", 400);[m
+[32m+[m[32m            }[m
+[32m+[m
+[32m+[m[32m            token.RevokedAt = DateTime.UtcNow;[m
+[32m+[m
+[32m+[m[32m            await _context.SaveChangesAsync();[m
+[32m+[m[32m        }[m
+         private string GenerateJwtToken(User user)[m
+         {[m
+             var claims = new List<Claim>[m
+[36m@@ -119,6 +220,16 @@[m [mnamespace BlogPlatform.API.Services[m
+             return new JwtSecurityTokenHandler().WriteToken(token);[m
+         }[m
+ [m
+[32m+[m[41m        [m
+[32m+[m
+[32m+[m[32m        private string GenerateRefreshToken()[m
+[32m+[m[32m        {[m
+[32m+[m[32m            return Convert.ToBase64String([m
+[32m+[m[32m                System.Security.Cryptography.RandomNumberGenerator.GetBytes(64)[m
+[32m+[m[32m            );[m
+[32m+[m[32m        }[m
+[32m+[m
+[32m+[m
+     }[m
+ [m
+ }[m
+\ No newline at end of file[m
+[1mdiff --git a/BlogPlatform.API/Services/Interfaces/IAuthService.cs b/BlogPlatform.API/Services/Interfaces/IAuthService.cs[m
+[1mindex 6cc1459..62f5123 100644[m
+[1m--- a/BlogPlatform.API/Services/Interfaces/IAuthService.cs[m
+[1m+++ b/BlogPlatform.API/Services/Interfaces/IAuthService.cs[m
+[36m@@ -7,5 +7,12 @@[m [mnamespace BlogPlatform.API.Services.Interfaces[m
+         Task<AuthResponseDto> RegisterAsync(RegisterDto registerDto);[m
+ [m
+         Task<AuthResponseDto> LoginAsync(LoginDto loginDto);[m
+[32m+[m
+[32m+[m[32m        Task LogoutAsync(string refreshToken);[m
+[32m+[m
+[32m+[m[32m        Task<AuthResponseDto> RefreshTokenAsync([m
+[32m+[m[32m            RefreshTokenRequestDto refreshTokenRequestDto);[m
+[32m+[m
+[32m+[m[41m        [m
+     }[m
+ }[m
+\ No newline at end of file[m
