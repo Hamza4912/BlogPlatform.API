@@ -159,5 +159,35 @@ namespace BlogPlatform.API.Services
                 TotalLikes = totalLikes
             };
         }
+
+        public async Task<AdminUserResponseDto> ReactivateUserAsync(int userId)
+        {
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.Id == userId);
+
+            if (user == null)
+            {
+                throw new ApiException("User not found.", 404);
+            }
+
+            if (user.IsActive)
+            {
+                throw new ApiException("User is already active.", 400);
+            }
+
+            user.IsActive = true;
+
+            await _context.SaveChangesAsync();
+
+            return new AdminUserResponseDto
+            {
+                Id = user.Id,
+                Username = user.Name,
+                Email = user.Email,
+                Role = user.Role,
+                IsActive = user.IsActive,
+                CreatedAt = user.CreatedAt
+            };
+        }
     }
 }

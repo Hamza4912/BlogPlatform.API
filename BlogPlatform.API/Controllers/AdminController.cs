@@ -73,5 +73,13 @@ namespace BlogPlatform.API.Controllers
 
             return Ok(dashboard);
         }
+
+        [HttpPut("users/{id}/activate")]
+        public async Task<IActionResult> ReactivateUser(int id)
+        {
+            var user = await _adminService.ReactivateUserAsync(id);
+
+            return Ok(user);
+        }
     }
 }

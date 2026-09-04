@@ -17,6 +17,8 @@ namespace BlogPlatform.API.Services.Interfaces
         Task DeleteCommentAsync(int commentId);
 
         Task<AdminDashboardResponseDto> GetDashboardAsync();
+
+        Task<AdminUserResponseDto> ReactivateUserAsync(int userId);
     }
 
 
