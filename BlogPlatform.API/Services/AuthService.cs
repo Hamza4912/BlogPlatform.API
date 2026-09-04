@@ -79,6 +79,10 @@ namespace BlogPlatform.API.Services
             {
                 throw new ApiException("Invalid email or password.", 401);
             }
+            if (!user.IsActive)
+            {
+                throw new ApiException("Your account has been deactivated.", 403);
+            }
 
             bool isPasswordValid = BCrypt.Net.BCrypt.Verify(
                    loginDto.Password,
@@ -137,7 +141,12 @@ namespace BlogPlatform.API.Services
             {
                 throw new ApiException("Refresh token has expired.", 401);
             }
-
+            if (!refreshToken.User.IsActive)
+            {
+                throw new ApiException(
+                    "Your account has been deactivated.",
+                    403);
+            }
             var user = refreshToken.User;
 
             // Revoke old refresh token
