@@ -1,3 +1,4 @@
 <Solution>
+  <Project Path="BlogPlatform.API.Tests/BlogPlatform.API.Tests.csproj" Id="0913e1c7-3011-4af0-a690-11b398efbb83" />
   <Project Path="BlogPlatform.API/BlogPlatform.API.csproj" />
 </Solution>
