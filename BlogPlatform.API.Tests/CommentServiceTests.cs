@@ -4,326 +4,434 @@ using BlogPlatform.API.Exceptions;
 using BlogPlatform.API.Models;
 using BlogPlatform.API.Services;
 using Microsoft.EntityFrameworkCore;
-using Xunit;
 
-namespace BlogPlatform.Tests.Services
+namespace BlogPlatform.API.Tests
 {
-    public class CommentServiceTests : IDisposable
+    public class CommentServiceTests
     {
-        private readonly AppDbContext _context;
-        private readonly CommentService _sut; // System Under Test
-
-        public CommentServiceTests()
+        private AppDbContext CreateDbContext()
         {
             var options = new DbContextOptionsBuilder<AppDbContext>()
-                .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .UseInMemoryDatabase(Guid.NewGuid().ToString())
                 .Options;
 
-            _context = new AppDbContext(options);
-            _sut = new CommentService(_context);
+            return new AppDbContext(options);
         }
 
-        public void Dispose()
+        [Fact]
+        public async Task CreateCommentAsync_ShouldCreateComment_WhenBlogExists()
         {
-            _context.Database.EnsureDeleted();
-            _context.Dispose();
-        }
+            using var context = CreateDbContext();
 
-        // ---------- Helper ----------
-        private async Task<User> SeedUserAsync(string name = "Ali")
-        {
-            var user = new User { Name = name, Email = $"{name}@test.com" };
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
-            return user;
-        }
+            var user = new User
+            {
+                Name = "Ali",
+                Email = "ali@test.com",
+                PasswordHash = "hashed",
+                Role = "User"
+            };
 
-        private async Task<Blog> SeedBlogAsync(int userId, string title = "My Blog")
-        {
             var blog = new Blog
             {
-                Title = title,
-                Content = "Content",
-                UserId = userId,
+                Title = "Test Blog",
+                Content = "Test Content",
+                UserId = 1,
+                CategoryId = 1,
                 CreatedAt = DateTime.UtcNow
             };
-            _context.Blogs.Add(blog);
-            await _context.SaveChangesAsync();
-            return blog;
-        }
 
-        // ============================================================
-        //  CreateCommentAsync
-        // ============================================================
+            context.Users.Add(user);
+            await context.SaveChangesAsync();
 
-        [Fact]
-        public async Task CreateCommentAsync_WhenBlogExists_ReturnsCommentResponseDto()
-        {
-            // Arrange
-            var user = await SeedUserAsync("Ali");
-            var blog = await SeedBlogAsync(user.Id);
-            var dto = new CreateCommentDto { Text = "Nice post!" };
+            blog.UserId = user.Id;
+            context.Blogs.Add(blog);
+            await context.SaveChangesAsync();
 
-            // Act
-            var result = await _sut.CreateCommentAsync(blog.Id, dto, user.Id);
+            var service = new CommentService(context);
 
-            // Assert
+            var dto = new CreateCommentDto
+            {
+                Text = "Great blog!"
+            };
+
+            var result = await service.CreateCommentAsync(
+                blog.Id,
+                dto,
+                user.Id);
+
             Assert.NotNull(result);
-            Assert.Equal("Nice post!", result.Text);
+            Assert.True(result.Id > 0);
+            Assert.Equal("Great blog!", result.Text);
             Assert.Equal(blog.Id, result.BlogId);
             Assert.Equal("Ali", result.AuthorName);
-            Assert.True(result.Id > 0);
+
+            var comment = await context.Comments
+                .FirstOrDefaultAsync(c => c.Id == result.Id);
+
+            Assert.NotNull(comment);
+            Assert.Equal("Great blog!", comment.Text);
         }
 
         [Fact]
-        public async Task CreateCommentAsync_WhenBlogNotFound_ThrowsApiException()
+        public async Task CreateCommentAsync_ShouldThrowException_WhenBlogDoesNotExist()
         {
-            // Arrange
-            var user = await SeedUserAsync();
-            var dto = new CreateCommentDto { Text = "Comment" };
+            using var context = CreateDbContext();
 
-            // Act & Assert
-            var ex = await Assert.ThrowsAsync<ApiException>(
-                () => _sut.CreateCommentAsync(999, dto, user.Id));
+            var service = new CommentService(context);
 
-            Assert.Equal(404, ex.StatusCode);
-            Assert.Equal("Blog not found.", ex.Message);
-        }
-
-        [Fact]
-        public async Task CreateCommentAsync_SavesCommentToDatabase()
-        {
-            // Arrange
-            var user = await SeedUserAsync();
-            var blog = await SeedBlogAsync(user.Id);
-            var dto = new CreateCommentDto { Text = "Hello" };
-
-            // Act
-            await _sut.CreateCommentAsync(blog.Id, dto, user.Id);
-
-            // Assert
-            var commentInDb = await _context.Comments.FirstOrDefaultAsync();
-            Assert.NotNull(commentInDb);
-            Assert.Equal("Hello", commentInDb.Text);
-            Assert.Equal(blog.Id, commentInDb.BlogId);
-            Assert.Equal(user.Id, commentInDb.UserId);
-        }
-
-        // ============================================================
-        //  GetCommentsByBlogAsync
-        // ============================================================
-
-        [Fact]
-        public async Task GetCommentsByBlogAsync_WhenCommentsExist_ReturnsOrderedComments()
-        {
-            // Arrange
-            var user = await SeedUserAsync("Sara");
-            var blog = await SeedBlogAsync(user.Id);
-
-            _context.Comments.AddRange(
-                new Comment { Text = "First", BlogId = blog.Id, UserId = user.Id, CreatedAt = DateTime.UtcNow.AddMinutes(-5) },
-                new Comment { Text = "Second", BlogId = blog.Id, UserId = user.Id, CreatedAt = DateTime.UtcNow }
-            );
-            await _context.SaveChangesAsync();
-
-            // Act
-            var result = (await _sut.GetCommentsByBlogAsync(blog.Id)).ToList();
-
-            // Assert
-            Assert.Equal(2, result.Count);
-            Assert.Equal("First", result[0].Text);   // oldest first
-            Assert.Equal("Second", result[1].Text);
-        }
-
-        [Fact]
-        public async Task GetCommentsByBlogAsync_WhenNoComments_ReturnsEmptyList()
-        {
-            // Arrange
-            var user = await SeedUserAsync();
-            var blog = await SeedBlogAsync(user.Id);
-
-            // Act
-            var result = await _sut.GetCommentsByBlogAsync(blog.Id);
-
-            // Assert
-            Assert.Empty(result);
-        }
-
-        [Fact]
-        public async Task GetCommentsByBlogAsync_OnlyReturnsCommentsForGivenBlog()
-        {
-            // Arrange
-            var user = await SeedUserAsync();
-            var blog1 = await SeedBlogAsync(user.Id, "Blog 1");
-            var blog2 = await SeedBlogAsync(user.Id, "Blog 2");
-
-            _context.Comments.AddRange(
-                new Comment { Text = "For blog1", BlogId = blog1.Id, UserId = user.Id, CreatedAt = DateTime.UtcNow },
-                new Comment { Text = "For blog2", BlogId = blog2.Id, UserId = user.Id, CreatedAt = DateTime.UtcNow }
-            );
-            await _context.SaveChangesAsync();
-
-            // Act
-            var result = (await _sut.GetCommentsByBlogAsync(blog1.Id)).ToList();
-
-            // Assert
-            Assert.Single(result);
-            Assert.Equal("For blog1", result[0].Text);
-        }
-
-        [Fact]
-        public async Task GetCommentsByBlogAsync_ReturnsAuthorNameCorrectly()
-        {
-            // Arrange
-            var user = await SeedUserAsync("Hassan");
-            var blog = await SeedBlogAsync(user.Id);
-            _context.Comments.Add(new Comment
+            var dto = new CreateCommentDto
             {
-                Text = "Test",
+                Text = "Test comment"
+            };
+
+            var exception = await Assert.ThrowsAsync<ApiException>(
+                () => service.CreateCommentAsync(
+                    999,
+                    dto,
+                    1));
+
+            Assert.Equal("Blog not found.", exception.Message);
+            Assert.Equal(404, exception.StatusCode);
+        }
+
+        [Fact]
+        public async Task GetCommentsByBlogAsync_ShouldReturnCommentsOrderedByCreatedAt()
+        {
+            using var context = CreateDbContext();
+
+            var user = new User
+            {
+                Name = "Ali",
+                Email = "ali@test.com",
+                PasswordHash = "hashed",
+                Role = "User"
+            };
+
+            var blog = new Blog
+            {
+                Title = "Test Blog",
+                Content = "Content",
+                UserId = 1,
+                CategoryId = 1,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            context.Users.Add(user);
+            await context.SaveChangesAsync();
+
+            blog.UserId = user.Id;
+            context.Blogs.Add(blog);
+            await context.SaveChangesAsync();
+
+            var comment1 = new Comment
+            {
+                Text = "First comment",
+                BlogId = blog.Id,
+                UserId = user.Id,
+                CreatedAt = DateTime.UtcNow.AddMinutes(-10)
+            };
+
+            var comment2 = new Comment
+            {
+                Text = "Second comment",
                 BlogId = blog.Id,
                 UserId = user.Id,
                 CreatedAt = DateTime.UtcNow
-            });
-            await _context.SaveChangesAsync();
-
-            // Act
-            var result = (await _sut.GetCommentsByBlogAsync(blog.Id)).First();
-
-            // Assert
-            Assert.Equal("Hassan", result.AuthorName);
-        }
-
-        // ============================================================
-        //  UpdateCommentAsync (currently NotImplementedException)
-        // ============================================================
-
-        [Fact]
-        public async Task UpdateCommentAsync_CurrentlyThrowsNotImplementedException()
-        {
-            // Arrange
-            var dto = new CreateCommentDto { Text = "Updated" };
-
-            // Act & Assert
-            await Assert.ThrowsAsync<NotImplementedException>(
-                () => _sut.UpdateCommentAsync(1, dto, 1));
-        }
-
-        // ============================================================
-        //  DeleteCommentAsync (currently NotImplementedException)
-        // ============================================================
-
-        [Fact]
-        public async Task DeleteCommentAsync_CurrentlyThrowsNotImplementedException()
-        {
-            // Act & Assert
-            await Assert.ThrowsAsync<NotImplementedException>(
-                () => _sut.DeleteCommentAsync(1, 1));
-        }
-        public async Task<CommentResponseDto> UpdateCommentAsync(
-    int commentId,
-    CreateCommentDto updateCommentDto,
-    int userId)
-        {
-            var comment = await _context.Comments
-                .Include(c => c.User)
-                .FirstOrDefaultAsync(c => c.Id == commentId);
-
-            if (comment == null)
-                throw new ApiException("Comment not found.", 404);
-
-            if (comment.UserId != userId)
-                throw new ApiException("You are not allowed to update this comment.", 403);
-
-            comment.Text = updateCommentDto.Text;
-
-            await _context.SaveChangesAsync();
-
-            return new CommentResponseDto
-            {
-                Id = comment.Id,
-                Text = comment.Text,
-                CreatedAt = comment.CreatedAt,
-                AuthorName = comment.User.Name,
-                BlogId = comment.BlogId
             };
+
+            context.Comments.AddRange(comment1, comment2);
+            await context.SaveChangesAsync();
+
+            var service = new CommentService(context);
+
+            var result = (await service.GetCommentsByBlogAsync(
+                blog.Id)).ToList();
+
+            Assert.Equal(2, result.Count);
+
+            Assert.Equal("First comment", result[0].Text);
+            Assert.Equal("Second comment", result[1].Text);
+
+            Assert.Equal("Ali", result[0].AuthorName);
+            Assert.Equal(blog.Id, result[0].BlogId);
         }
 
         [Fact]
-        public async Task UpdateCommentAsync_WhenOwnerUpdates_ReturnsUpdatedDto()
+        public async Task GetCommentsByBlogAsync_ShouldReturnEmptyList_WhenBlogHasNoComments()
         {
-            var user = await SeedUserAsync("Ali");
-            var blog = await SeedBlogAsync(user.Id);
-            var comment = new Comment { Text = "Old", BlogId = blog.Id, UserId = user.Id, CreatedAt = DateTime.UtcNow };
-            _context.Comments.Add(comment);
-            await _context.SaveChangesAsync();
+            using var context = CreateDbContext();
 
-            var result = await _sut.UpdateCommentAsync(comment.Id, new CreateCommentDto { Text = "New" }, user.Id);
+            var result = (await new CommentService(context)
+                .GetCommentsByBlogAsync(999))
+                .ToList();
 
-            Assert.Equal("New", result.Text);
+            Assert.Empty(result);
+        }
+        [Fact]
+        public async Task UpdateCommentAsync_ShouldUpdateComment_WhenUserIsOwner()
+        {
+            using var context = CreateDbContext();
+
+            var user = new User
+            {
+                Name = "Ali",
+                Email = "ali@test.com",
+                PasswordHash = "hashed",
+                Role = "User"
+            };
+
+            context.Users.Add(user);
+            await context.SaveChangesAsync();
+
+            var blog = new Blog
+            {
+                Title = "Test Blog",
+                Content = "Content",
+                UserId = user.Id,
+                CategoryId = 1,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            context.Blogs.Add(blog);
+            await context.SaveChangesAsync();
+
+            var comment = new Comment
+            {
+                Text = "Original text",
+                BlogId = blog.Id,
+                UserId = user.Id,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            context.Comments.Add(comment);
+            await context.SaveChangesAsync();
+
+            var service = new CommentService(context);
+
+            var dto = new CreateCommentDto
+            {
+                Text = "Updated text"
+            };
+
+            var result = await service.UpdateCommentAsync(
+                comment.Id,
+                dto,
+                user.Id);
+
+            Assert.Equal("Updated text", result.Text);
+            Assert.Equal(comment.Id, result.Id);
             Assert.Equal("Ali", result.AuthorName);
+
+            var updatedComment = await context.Comments
+                .FirstOrDefaultAsync(c => c.Id == comment.Id);
+
+            Assert.NotNull(updatedComment);
+            Assert.Equal("Updated text", updatedComment.Text);
         }
 
         [Fact]
-        public async Task UpdateCommentAsync_WhenNotOwner_Throws403()
+        public async Task UpdateCommentAsync_ShouldThrowException_WhenCommentDoesNotExist()
         {
-            var owner = await SeedUserAsync("Ali");
-            var other = await SeedUserAsync("Bob");
-            var blog = await SeedBlogAsync(owner.Id);
-            var comment = new Comment { Text = "Old", BlogId = blog.Id, UserId = owner.Id, CreatedAt = DateTime.UtcNow };
-            _context.Comments.Add(comment);
-            await _context.SaveChangesAsync();
+            using var context = CreateDbContext();
 
-            var ex = await Assert.ThrowsAsync<ApiException>(
-                () => _sut.UpdateCommentAsync(comment.Id, new CreateCommentDto { Text = "Hacked" }, other.Id));
+            var service = new CommentService(context);
 
-            Assert.Equal(403, ex.StatusCode);
+            var dto = new CreateCommentDto
+            {
+                Text = "Updated text"
+            };
+
+            var exception = await Assert.ThrowsAsync<ApiException>(
+                () => service.UpdateCommentAsync(999, dto, 1));
+
+            Assert.Equal("Comment not found.", exception.Message);
+            Assert.Equal(404, exception.StatusCode);
         }
 
         [Fact]
-        public async Task UpdateCommentAsync_WhenCommentMissing_Throws404()
+        public async Task UpdateCommentAsync_ShouldThrowException_WhenUserIsNotOwner()
         {
-            var ex = await Assert.ThrowsAsync<ApiException>(
-                () => _sut.UpdateCommentAsync(999, new CreateCommentDto { Text = "X" }, 1));
-            Assert.Equal(404, ex.StatusCode);
+            using var context = CreateDbContext();
+
+            var owner = new User
+            {
+                Name = "Ali",
+                Email = "ali@test.com",
+                PasswordHash = "hashed",
+                Role = "User"
+            };
+
+            var otherUser = new User
+            {
+                Name = "Sara",
+                Email = "sara@test.com",
+                PasswordHash = "hashed",
+                Role = "User"
+            };
+
+            context.Users.AddRange(owner, otherUser);
+            await context.SaveChangesAsync();
+
+            var blog = new Blog
+            {
+                Title = "Test Blog",
+                Content = "Content",
+                UserId = owner.Id,
+                CategoryId = 1,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            context.Blogs.Add(blog);
+            await context.SaveChangesAsync();
+
+            var comment = new Comment
+            {
+                Text = "Original text",
+                BlogId = blog.Id,
+                UserId = owner.Id,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            context.Comments.Add(comment);
+            await context.SaveChangesAsync();
+
+            var service = new CommentService(context);
+
+            var dto = new CreateCommentDto
+            {
+                Text = "Hacked text"
+            };
+
+            var exception = await Assert.ThrowsAsync<ApiException>(
+                () => service.UpdateCommentAsync(comment.Id, dto, otherUser.Id));
+
+            Assert.Equal(
+                "You are not authorized to update this comment.",
+                exception.Message);
+
+            Assert.Equal(403, exception.StatusCode);
         }
 
         [Fact]
-        public async Task DeleteCommentAsync_WhenOwnerDeletes_RemovesFromDb()
+        public async Task DeleteCommentAsync_ShouldDeleteComment_WhenUserIsOwner()
         {
-            var user = await SeedUserAsync();
-            var blog = await SeedBlogAsync(user.Id);
-            var comment = new Comment { Text = "Bye", BlogId = blog.Id, UserId = user.Id, CreatedAt = DateTime.UtcNow };
-            _context.Comments.Add(comment);
-            await _context.SaveChangesAsync();
+            using var context = CreateDbContext();
 
-            await _sut.DeleteCommentAsync(comment.Id, user.Id);
+            var user = new User
+            {
+                Name = "Ali",
+                Email = "ali@test.com",
+                PasswordHash = "hashed",
+                Role = "User"
+            };
 
-            Assert.Null(await _context.Comments.FindAsync(comment.Id));
+            context.Users.Add(user);
+            await context.SaveChangesAsync();
+
+            var blog = new Blog
+            {
+                Title = "Test Blog",
+                Content = "Content",
+                UserId = user.Id,
+                CategoryId = 1,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            context.Blogs.Add(blog);
+            await context.SaveChangesAsync();
+
+            var comment = new Comment
+            {
+                Text = "To be deleted",
+                BlogId = blog.Id,
+                UserId = user.Id,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            context.Comments.Add(comment);
+            await context.SaveChangesAsync();
+
+            var service = new CommentService(context);
+
+            await service.DeleteCommentAsync(comment.Id, user.Id);
+
+            var deletedComment = await context.Comments
+                .FirstOrDefaultAsync(c => c.Id == comment.Id);
+
+            Assert.Null(deletedComment);
         }
 
         [Fact]
-        public async Task DeleteCommentAsync_WhenNotOwner_Throws403()
+        public async Task DeleteCommentAsync_ShouldThrowException_WhenCommentDoesNotExist()
         {
-            var owner = await SeedUserAsync("Ali");
-            var other = await SeedUserAsync("Bob");
-            var blog = await SeedBlogAsync(owner.Id);
-            var comment = new Comment { Text = "Stay", BlogId = blog.Id, UserId = owner.Id, CreatedAt = DateTime.UtcNow };
-            _context.Comments.Add(comment);
-            await _context.SaveChangesAsync();
+            using var context = CreateDbContext();
 
-            var ex = await Assert.ThrowsAsync<ApiException>(
-                () => _sut.DeleteCommentAsync(comment.Id, other.Id));
+            var service = new CommentService(context);
 
-            Assert.Equal(403, ex.StatusCode);
-            Assert.NotNull(await _context.Comments.FindAsync(comment.Id));
+            var exception = await Assert.ThrowsAsync<ApiException>(
+                () => service.DeleteCommentAsync(999, 1));
+
+            Assert.Equal("Comment not found.", exception.Message);
+            Assert.Equal(404, exception.StatusCode);
         }
 
         [Fact]
-        public async Task DeleteCommentAsync_WhenCommentMissing_Throws404()
+        public async Task DeleteCommentAsync_ShouldThrowException_WhenUserIsNotOwner()
         {
-            var ex = await Assert.ThrowsAsync<ApiException>(
-                () => _sut.DeleteCommentAsync(999, 1));
-            Assert.Equal(404, ex.StatusCode);
+            using var context = CreateDbContext();
+
+            var owner = new User
+            {
+                Name = "Ali",
+                Email = "ali@test.com",
+                PasswordHash = "hashed",
+                Role = "User"
+            };
+
+            var otherUser = new User
+            {
+                Name = "Sara",
+                Email = "sara@test.com",
+                PasswordHash = "hashed",
+                Role = "User"
+            };
+
+            context.Users.AddRange(owner, otherUser);
+            await context.SaveChangesAsync();
+
+            var blog = new Blog
+            {
+                Title = "Test Blog",
+                Content = "Content",
+                UserId = owner.Id,
+                CategoryId = 1,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            context.Blogs.Add(blog);
+            await context.SaveChangesAsync();
+
+            var comment = new Comment
+            {
+                Text = "Protected comment",
+                BlogId = blog.Id,
+                UserId = owner.Id,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            context.Comments.Add(comment);
+            await context.SaveChangesAsync();
+
+            var service = new CommentService(context);
+
+            var exception = await Assert.ThrowsAsync<ApiException>(
+                () => service.DeleteCommentAsync(comment.Id, otherUser.Id));
+
+            Assert.Equal(
+                "You are not authorized to delete this comment.",
+                exception.Message);
+
+            Assert.Equal(403, exception.StatusCode);
         }
     }
 }

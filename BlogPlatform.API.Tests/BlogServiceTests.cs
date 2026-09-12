@@ -17,7 +17,7 @@ namespace BlogPlatform.API.Tests
 
             return new AppDbContext(options);
         }
-
+        
         [Fact]
         public async Task CreateBlogAsync_ShouldCreateBlog_WhenDataIsValid()
         {

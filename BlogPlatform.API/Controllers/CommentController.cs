@@ -47,5 +47,47 @@ namespace BlogPlatform.API.Controllers
 
             return Ok(comments);
         }
+
+        [HttpPut("/api/comments/{commentId}")]
+        public async Task<IActionResult> UpdateComment(
+    int commentId,
+    CreateCommentDto updateCommentDto)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+
+            if (userIdClaim == null)
+            {
+                return Unauthorized();
+            }
+
+            int userId = int.Parse(userIdClaim.Value);
+
+            var result = await _commentService.UpdateCommentAsync(
+                commentId,
+                updateCommentDto,
+                userId);
+
+            return Ok(result);
+        }
+
+        [HttpDelete("/api/comments/{commentId}")]
+        public async Task<IActionResult> DeleteComment(int commentId)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+
+            if (userIdClaim == null)
+            {
+                return Unauthorized();
+            }
+
+            int userId = int.Parse(userIdClaim.Value);
+
+            await _commentService.DeleteCommentAsync(commentId, userId);
+
+            return Ok(new
+            {
+                message = "Comment deleted successfully."
+            });
+        }
     }
 }

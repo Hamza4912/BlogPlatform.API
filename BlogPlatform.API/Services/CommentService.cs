@@ -70,17 +70,56 @@ namespace BlogPlatform.API.Services
                 BlogId = comment.BlogId
             });
         }
-        public Task<CommentResponseDto> UpdateCommentAsync(
-            int commentId,
-            CreateCommentDto updateCommentDto,
-            int userId)
+        public async Task<CommentResponseDto> UpdateCommentAsync(
+    int commentId,
+    CreateCommentDto updateCommentDto,
+    int userId)
         {
-            throw new NotImplementedException();
+            var comment = await _context.Comments
+                .Include(c => c.User)
+                .FirstOrDefaultAsync(c => c.Id == commentId);
+
+            if (comment == null)
+            {
+                throw new ApiException("Comment not found.", 404);
+            }
+
+            if (comment.UserId != userId)
+            {
+                throw new ApiException("You are not authorized to update this comment.", 403);
+            }
+
+            comment.Text = updateCommentDto.Text;
+
+            await _context.SaveChangesAsync();
+
+            return new CommentResponseDto
+            {
+                Id = comment.Id,
+                Text = comment.Text,
+                CreatedAt = comment.CreatedAt,
+                AuthorName = comment.User.Name,
+                BlogId = comment.BlogId
+            };
         }
 
-        public Task DeleteCommentAsync(int commentId, int userId)
+        public async Task DeleteCommentAsync(int commentId, int userId)
         {
-            throw new NotImplementedException();
+            var comment = await _context.Comments
+                .FirstOrDefaultAsync(c => c.Id == commentId);
+
+            if (comment == null)
+            {
+                throw new ApiException("Comment not found.", 404);
+            }
+
+            if (comment.UserId != userId)
+            {
+                throw new ApiException("You are not authorized to delete this comment.", 403);
+            }
+
+            _context.Comments.Remove(comment);
+            await _context.SaveChangesAsync();
         }
     }
 }
