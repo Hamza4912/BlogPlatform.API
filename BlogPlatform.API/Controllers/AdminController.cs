@@ -43,6 +43,13 @@ namespace BlogPlatform.API.Controllers
 
             return Ok(user);
         }
+        [HttpPut("users/{id}/activate")]
+        public async Task<IActionResult> ActivateUserAsync(int id)
+        {
+            var user = await _adminService.ActivateUserAsync(id);
+
+            return Ok(user);
+        }
 
         [HttpDelete("blogs/{id}")]
         public async Task<IActionResult> DeleteBlog(int id)

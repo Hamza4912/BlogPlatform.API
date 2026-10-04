@@ -194,10 +194,10 @@ namespace BlogPlatform.API.Services
             };
         }
 
-        public async Task DeleteBlogAsync(int id, int userId)
+        public async Task DeleteBlogAsync(int blogId, int userId)
         {
             var blog = await _context.Blogs
-                .FirstOrDefaultAsync(b => b.Id == id);
+                .FirstOrDefaultAsync(b => b.Id == blogId);
 
             if (blog == null)
             {
@@ -209,7 +209,13 @@ namespace BlogPlatform.API.Services
                 throw new ApiException("You are not authorized to delete this blog.", 403);
             }
 
+            var comments = _context.Comments.Where(c => c.BlogId == blogId);
+            var likes = _context.BlogLikes.Where(l => l.BlogId == blogId);
+
+            _context.Comments.RemoveRange(comments);
+            _context.BlogLikes.RemoveRange(likes);
             _context.Blogs.Remove(blog);
+
             await _context.SaveChangesAsync();
         }
     }

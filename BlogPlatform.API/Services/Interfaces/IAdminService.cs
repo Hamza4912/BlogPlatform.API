@@ -12,6 +12,8 @@ namespace BlogPlatform.API.Services.Interfaces
 
         Task<AdminUserResponseDto> DeactivateUserAsync(int userId);
 
+        Task<AdminUserResponseDto> ActivateUserAsync(int userId);
+
         Task DeleteBlogAsync(int blogId);
 
         Task DeleteCommentAsync(int commentId);

@@ -49,7 +49,8 @@ namespace BlogPlatform.API.Services
                 Text = createdComment.Text,
                 CreatedAt = createdComment.CreatedAt,
                 AuthorName = createdComment.User.Name,
-                BlogId = createdComment.BlogId
+                BlogId = createdComment.BlogId,
+                UserId = createdComment.UserId
             };
         }
 
@@ -67,7 +68,8 @@ namespace BlogPlatform.API.Services
                 Text = comment.Text,
                 CreatedAt = comment.CreatedAt,
                 AuthorName = comment.User.Name,
-                BlogId = comment.BlogId
+                BlogId = comment.BlogId,
+                UserId = comment.UserId
             });
         }
         public Task<CommentResponseDto> UpdateCommentAsync(
@@ -75,7 +77,37 @@ namespace BlogPlatform.API.Services
             CreateCommentDto updateCommentDto,
             int userId)
         {
+<<<<<<< Updated upstream
             throw new NotImplementedException();
+=======
+            var comment = await _context.Comments
+                .Include(c => c.User)
+                .FirstOrDefaultAsync(c => c.Id == commentId);
+
+            if (comment == null)
+            {
+                throw new ApiException("Comment not found.", 404);
+            }
+
+            if (comment.UserId != userId)
+            {
+                throw new ApiException("You are not authorized to update this comment.", 403);
+            }
+
+            comment.Text = updateCommentDto.Text;
+
+            await _context.SaveChangesAsync();
+
+            return new CommentResponseDto
+            {
+                Id = comment.Id,
+                Text = comment.Text,
+                CreatedAt = comment.CreatedAt,
+                AuthorName = comment.User.Name,
+                BlogId = comment.BlogId,
+                UserId = comment.UserId
+            };
+>>>>>>> Stashed changes
         }
 
         public Task DeleteCommentAsync(int commentId, int userId)
