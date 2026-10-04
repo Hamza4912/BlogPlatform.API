@@ -16,7 +16,7 @@ namespace BlogPlatform.API.Controllers
         private readonly IBlogService _blogService;
         private readonly IBlogLikeService _blogLikeService;
 
-        public BlogController(IBlogService blogService,IBlogLikeService blogLikeService)
+        public BlogController(IBlogService blogService, IBlogLikeService blogLikeService)
         {
             _blogService = blogService;
             _blogLikeService = blogLikeService;
@@ -144,5 +144,13 @@ namespace BlogPlatform.API.Controllers
                 message = "Blog unliked successfully."
             });
         }
+        [HttpGet("{id}/likes")]
+        public async Task<IActionResult> GetLikes(int id)
+        {
+            var result = await _blogLikeService.GetLikesAsync(id);
+
+            return Ok(result);
+        }
+
     }
 }

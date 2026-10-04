@@ -100,6 +100,7 @@ app.UseSwaggerUI();
 
 // Configure the HTTP request pipeline.
 
+
 app.UseHttpsRedirection();
 app.UseCors("AllowFrontend");
 
@@ -110,3 +111,4 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
